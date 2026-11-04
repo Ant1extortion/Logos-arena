@@ -6,6 +6,7 @@ import {
   verifyBlitzAnswer,
   generatePersonaReply,
   generateFinalAutopsy,
+  stressTestDraft,
   sanitizeDebaterInput,
 } from "../ai-referee";
 import {
@@ -418,6 +419,46 @@ describe("AI Referee, Personas, and Blitz Engine Unit Tests", () => {
       const knockedOutDebate = { ...mockDebate, pro_hp: 0, con_hp: 40 };
       const autopsy = await generateFinalAutopsy(knockedOutDebate, mockTurns);
       expect(autopsy.winner).toBe("CON");
+    });
+  });
+
+  describe("Sermon & Essay Stress-Tester (stressTestDraft)", () => {
+    it("returns structured analysis matching all 5 specification requirements", async () => {
+      const sermonDraft = "Either you accept this or society will collapse. You are an idiot if you doubt it, as Romans 1:20 proves.";
+      const result = await stressTestDraft(sermonDraft, "Sermon", "Atheist Skeptic");
+
+      // 1. overall_rigor_score
+      expect(result.overall_rigor_score).toBeGreaterThanOrEqual(0);
+      expect(result.overall_rigor_score).toBeLessThanOrEqual(100);
+
+      // 2. logical_weaknesses
+      expect(result.logical_weaknesses.length).toBeGreaterThan(0);
+      const weakness = result.logical_weaknesses[0];
+      expect(weakness).toHaveProperty("quote");
+      expect(weakness).toHaveProperty("fallacy_code");
+      expect(weakness).toHaveProperty("fallacy_name");
+      expect(weakness).toHaveProperty("critique");
+      expect(weakness).toHaveProperty("fixed_rewrite");
+
+      // 3. citation_audits
+      expect(result.citation_audits.length).toBeGreaterThan(0);
+      const audit = result.citation_audits[0];
+      expect(audit).toHaveProperty("cited_reference");
+      expect(["ACCURATE", "OUT_OF_CONTEXT", "UNVERIFIED"]).toContain(audit.status);
+      expect(audit).toHaveProperty("historical_context_note");
+      expect(audit).toHaveProperty("better_supporting_source");
+
+      // 4. hostile_qa_simulation: exactly 3 items
+      expect(result.hostile_qa_simulation).toHaveLength(3);
+      for (const qa of result.hostile_qa_simulation) {
+        expect(qa).toHaveProperty("tough_question");
+        expect(qa).toHaveProperty("why_they_will_ask_it");
+        expect(qa).toHaveProperty("airtight_response");
+      }
+
+      // 5. executive_verdict
+      expect(typeof result.executive_verdict).toBe("string");
+      expect(result.executive_verdict.length).toBeGreaterThan(10);
     });
   });
 });

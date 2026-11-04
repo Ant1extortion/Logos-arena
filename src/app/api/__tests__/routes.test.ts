@@ -9,6 +9,9 @@ import { PATCH as debateIdPatch } from "@/app/api/debates/[id]/route";
 import { POST as steelmanPost } from "@/app/api/debates/[id]/steelman/route";
 import { POST as turnPost } from "@/app/api/debates/[id]/turn/route";
 import { POST as blitzPost } from "@/app/api/debates/[id]/blitz/route";
+import { POST as stressTestPost } from "@/app/api/studio/stress-test/route";
+import { POST as preflightPost } from "@/app/api/debates/[id]/preflight/route";
+import { eq } from "drizzle-orm";
 
 function createJsonRequest(url: string, method: string, body?: unknown, token?: string, headers: Record<string, string> = {}): NextRequest {
   const reqHeaders: Record<string, string> = {
@@ -402,6 +405,154 @@ describe("Next.js API Routes Integration Tests", () => {
       expect(turnData.aiTurn.author_name).toBe("aquinas");
       expect(turnData.debate.current_round).toBe(2);
       expect(turnData.debate.current_turn).toBe("PRO");
+    });
+  });
+
+  describe("7. Studio Stress-Test API (/api/studio/stress-test)", () => {
+    it("enforces FREE monthly tier limit of 1 trial scan", async () => {
+      const signup = await authPost(createJsonRequest("http://localhost:3000/api/auth", "POST", {
+        action: "signup",
+        email: "pastor_free@logos.arena",
+        display_name: "Pastor Free",
+        passcode: "pass123",
+        device_hash: "dev_studio_1",
+      }));
+      const { sessionToken } = await signup.json();
+
+      // First scan should succeed
+      const scanReq1 = createJsonRequest("http://localhost:3000/api/studio/stress-test", "POST", {
+        draftText: "Either you accept divine providence or society collapses.",
+        documentType: "Sermon",
+        targetAudience: "Atheist Skeptic",
+      }, sessionToken);
+      const scanRes1 = await stressTestPost(scanReq1);
+      expect(scanRes1.status).toBe(200);
+      const data1 = await scanRes1.json();
+      expect(data1.result).toBeDefined();
+      expect(data1.scansUsed).toBe(1);
+      expect(data1.scansRemaining).toBe(0);
+
+      // Second scan should be rejected (403 Quota Exceeded)
+      const scanReq2 = createJsonRequest("http://localhost:3000/api/studio/stress-test", "POST", {
+        draftText: "Second draft sermon attempt.",
+      }, sessionToken);
+      const scanRes2 = await stressTestPost(scanReq2);
+      expect(scanRes2.status).toBe(403);
+      const data2 = await scanRes2.json();
+      expect(data2.quotaExceeded).toBe(true);
+    });
+
+    it("allows up to 10 scans for PRO tier and 50 for PREMIUM", async () => {
+      const signup = await authPost(createJsonRequest("http://localhost:3000/api/auth", "POST", {
+        action: "signup",
+        email: "scholar_pro@logos.arena",
+        display_name: "Scholar Pro",
+        passcode: "pass123",
+      }));
+      const { sessionToken, user } = await signup.json();
+
+      // Upgrade user to PRO
+      await db.update(users).set({ tier: "PRO" }).where(eq(users.id, user.id));
+
+      const scanReq = createJsonRequest("http://localhost:3000/api/studio/stress-test", "POST", {
+        draftText: "Academic essay exploring teleology and fine-tuning constants.",
+        documentType: "Academic Essay",
+        targetAudience: "Theological Scholar",
+      }, sessionToken);
+
+      const scanRes = await stressTestPost(scanReq);
+      expect(scanRes.status).toBe(200);
+      const data = await scanRes.json();
+      expect(data.scansUsed).toBe(1);
+      expect(data.maxScans).toBe(10);
+      expect(data.scansRemaining).toBe(9);
+    });
+  });
+
+  describe("8. Pre-Flight VAR Check API (/api/debates/[id]/preflight)", () => {
+    it("rejects Pre-Flight VAR for FREE and PRO users", async () => {
+      const signup = await authPost(createJsonRequest("http://localhost:3000/api/auth", "POST", {
+        action: "signup",
+        email: "regular_user@logos.arena",
+        display_name: "Regular Debater",
+        passcode: "pass123",
+      }));
+      const { sessionToken } = await signup.json();
+
+      const createRes = await debatesPost(createJsonRequest("http://localhost:3000/api/debates", "POST", {
+        topic: "Preflight Test Topic",
+        mode: "PVE",
+      }, sessionToken));
+      const { debate } = await createRes.json();
+
+      const preflightReq = createJsonRequest(`http://localhost:3000/api/debates/${debate.id}/preflight`, "POST", {
+        draftText: "My draft argument before official submission.",
+      }, sessionToken);
+
+      const res = await preflightPost(preflightReq, { params: Promise.resolve({ id: debate.id }) });
+      expect(res.status).toBe(403);
+      const data = await res.json();
+      expect(data.upgradeRequired).toBe(true);
+    });
+
+    it("strictly blocks Pre-Flight VAR in SUNDAY_BOUNTY tournament mode even for PREMIUM", async () => {
+      const signup = await authPost(createJsonRequest("http://localhost:3000/api/auth", "POST", {
+        action: "signup",
+        email: "premium_bounty@logos.arena",
+        display_name: "Premium Bounty Debater",
+        passcode: "pass123",
+      }));
+      const { sessionToken, user } = await signup.json();
+
+      // Upgrade to PREMIUM
+      await db.update(users).set({ tier: "PREMIUM" }).where(eq(users.id, user.id));
+
+      const createRes = await debatesPost(createJsonRequest("http://localhost:3000/api/debates", "POST", {
+        topic: "Sunday Tournament Motion",
+        mode: "SUNDAY_BOUNTY",
+        ai_persona: "sunday_grandmaster",
+      }, sessionToken));
+      const { debate } = await createRes.json();
+
+      const preflightReq = createJsonRequest(`http://localhost:3000/api/debates/${debate.id}/preflight`, "POST", {
+        draftText: "Attempting preflight in Sunday Tournament.",
+      }, sessionToken);
+
+      const res = await preflightPost(preflightReq, { params: Promise.resolve({ id: debate.id }) });
+      expect(res.status).toBe(403);
+      const data = await res.json();
+      expect(data.modeBlocked).toBe(true);
+    });
+
+    it("allows PREMIUM users to run Pre-Flight VAR in standard PVP/PVE debates", async () => {
+      const signup = await authPost(createJsonRequest("http://localhost:3000/api/auth", "POST", {
+        action: "signup",
+        email: "premium_user@logos.arena",
+        display_name: "Premium Debater",
+        passcode: "pass123",
+      }));
+      const { sessionToken, user } = await signup.json();
+
+      // Upgrade to PREMIUM
+      await db.update(users).set({ tier: "PREMIUM" }).where(eq(users.id, user.id));
+
+      const createRes = await debatesPost(createJsonRequest("http://localhost:3000/api/debates", "POST", {
+        topic: "Cosmological Necessity",
+        mode: "PVE",
+        ai_persona: "aquinas",
+      }, sessionToken));
+      const { debate } = await createRes.json();
+
+      const preflightReq = createJsonRequest(`http://localhost:3000/api/debates/${debate.id}/preflight`, "POST", {
+        draftText: "A contingent universe requires an uncaused necessary cause.",
+      }, sessionToken);
+
+      const res = await preflightPost(preflightReq, { params: Promise.resolve({ id: debate.id }) });
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.analysis).toBeDefined();
+      expect(data.analysis.overall_rigor_score).toBeGreaterThan(0);
+      expect(data.analysis.hostile_qa_simulation).toHaveLength(3);
     });
   });
 });

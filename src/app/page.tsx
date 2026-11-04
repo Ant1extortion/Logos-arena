@@ -290,11 +290,27 @@ export default function HomeLobby() {
         {/* Navigation Links & User Account / Session Pill */}
         <div className="flex items-center gap-3">
           <Link
+            href="/bounty"
+            className="hidden sm:flex items-center gap-1.5 text-amber-300 hover:text-amber-200 text-xs font-semibold px-2 py-1 transition-colors"
+          >
+            <Trophy className="w-3.5 h-3.5 text-amber-400" />
+            <span>Sunday Bounty</span>
+          </Link>
+
+          <Link
+            href="/pricing"
+            className="flex items-center gap-1.5 text-slate-300 hover:text-white text-xs font-semibold px-2 py-1 transition-colors"
+          >
+            <Zap className="w-3.5 h-3.5 text-amber-400" />
+            <span>Pricing</span>
+          </Link>
+
+          <Link
             href="/studio"
             className="flex items-center gap-1.5 bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/30 text-amber-300 px-3 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm"
           >
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span>Stress-Tester Studio</span>
+            <span>Studio</span>
           </Link>
 
           {user ? (

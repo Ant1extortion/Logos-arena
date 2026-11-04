@@ -195,3 +195,35 @@ export interface FinalAutopsy {
   roundBreakdown: AutopsyRoundDetail[];
   finalSynthesis: string;
 }
+
+// 9. Sermon & Essay Stress-Tester Studio Types
+export interface LogicalWeakness {
+  quote: string;
+  fallacy_code: FallacyCode | "RTM" | "NONE";
+  fallacy_name: string;
+  critique: string;
+  fixed_rewrite: string;
+}
+
+export type StudioCitationStatus = "ACCURATE" | "OUT_OF_CONTEXT" | "UNVERIFIED";
+
+export interface CitationAudit {
+  cited_reference: string;
+  status: StudioCitationStatus;
+  historical_context_note: string;
+  better_supporting_source: string;
+}
+
+export interface HostileQASimulation {
+  tough_question: string;
+  why_they_will_ask_it: string;
+  airtight_response: string;
+}
+
+export interface StressTestResult {
+  overall_rigor_score: number; // 0 to 100
+  logical_weaknesses: LogicalWeakness[];
+  citation_audits: CitationAudit[];
+  hostile_qa_simulation: HostileQASimulation[]; // 3 items
+  executive_verdict: string;
+}

@@ -23,7 +23,9 @@ import {
   RefreshCw,
   Info,
   Check,
+  Sparkles,
 } from "lucide-react";
+import { StressTestResult } from "@/lib/referee-types";
 import { useAntiCheat } from "@/lib/use-anti-cheat";
 import { RefereeTurnEvaluation, FinalAutopsy } from "@/lib/referee-types";
 
@@ -112,6 +114,11 @@ export default function ClashArenaPage() {
 
   // Share Copy Feedback
   const [copiedLink, setCopiedLink] = useState(false);
+
+  // Pre-Flight VAR State (PREMIUM feature)
+  const [preflightLoading, setPreflightLoading] = useState(false);
+  const [preflightResult, setPreflightResult] = useState<StressTestResult | null>(null);
+  const [preflightError, setPreflightError] = useState<string | null>(null);
 
   // Anti-cheat hook for the debate argument box
   const antiCheat = useAntiCheat({
@@ -362,6 +369,29 @@ export default function ClashArenaPage() {
     setTimeout(() => setCopiedLink(false), 3000);
   };
 
+  const handleRunPreflightCheck = async () => {
+    if (!argumentInput.trim()) return;
+    setPreflightLoading(true);
+    setPreflightError(null);
+    try {
+      const res = await fetch(`/api/debates/${id}/preflight`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ draftText: argumentInput.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setPreflightError(data.error || "Pre-flight scan failed.");
+        return;
+      }
+      setPreflightResult(data.analysis);
+    } catch (err: unknown) {
+      setPreflightError(err instanceof Error ? err.message : "Error contacting referee");
+    } finally {
+      setPreflightLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 text-slate-400 space-y-3">
@@ -410,12 +440,20 @@ export default function ClashArenaPage() {
         <div className="max-w-4xl mx-auto space-y-2.5">
           {/* Top meta bar */}
           <div className="flex items-center justify-between text-xs">
-            <Link
-              href="/"
-              className="text-slate-400 hover:text-amber-400 flex items-center gap-1 transition-colors font-medium"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" /> Colosseum
-            </Link>
+            <div className="flex items-center gap-3">
+              <Link
+                href="/"
+                className="text-slate-400 hover:text-amber-400 flex items-center gap-1 transition-colors font-medium"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" /> Colosseum
+              </Link>
+              <Link
+                href="/studio"
+                className="hidden sm:flex text-slate-400 hover:text-amber-400 items-center gap-1 transition-colors font-medium"
+              >
+                <Sparkles className="w-3 h-3 text-amber-400" /> Studio
+              </Link>
+            </div>
 
             <div className="flex items-center gap-2">
               <span className="font-mono text-[10px] text-slate-400 uppercase tracking-wider">
@@ -940,6 +978,66 @@ export default function ClashArenaPage() {
                 className="w-full bg-slate-950 border border-slate-800 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 rounded-xl p-3.5 text-xs sm:text-sm text-slate-100 placeholder-slate-600 outline-none transition-all disabled:opacity-40 disabled:cursor-not-allowed"
               />
             </div>
+
+            {/* Pre-Flight VAR Trigger for PREMIUM Users (Non-Sunday Bounty) */}
+            {debate.mode !== "SUNDAY_BOUNTY" && (
+              <div className="pt-1">
+                <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={handleRunPreflightCheck}
+                    disabled={preflightLoading || !argumentInput.trim()}
+                    className="text-[11px] font-bold text-amber-400 hover:text-amber-300 bg-amber-400/10 border border-amber-400/30 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors disabled:opacity-40"
+                  >
+                    {preflightLoading ? (
+                      <>
+                        <RefreshCw className="w-3 h-3 animate-spin" /> Running Pre-Flight VAR...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-3 h-3 text-amber-400" /> Run Pre-Flight VAR Check (PREMIUM)
+                      </>
+                    )}
+                  </button>
+
+                  <span className="text-[10px] text-slate-500">
+                    Private scan before official submission
+                  </span>
+                </div>
+
+                {preflightError && (
+                  <div className="mt-2 text-[11px] text-rose-400 bg-rose-500/10 border border-rose-500/20 p-2 rounded">
+                    {preflightError}
+                  </div>
+                )}
+
+                {preflightResult && (
+                  <div className="mt-2 p-3 bg-slate-950 border border-amber-500/30 rounded-xl space-y-2 text-xs">
+                    <div className="flex items-center justify-between font-bold text-amber-400">
+                      <span>Pre-Flight VAR Score: {preflightResult.overall_rigor_score}/100</span>
+                      <button
+                        type="button"
+                        onClick={() => setPreflightResult(null)}
+                        className="text-slate-500 hover:text-slate-300 font-mono text-xs"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <p className="text-slate-300 text-[11px]">{preflightResult.executive_verdict}</p>
+                    {preflightResult.logical_weaknesses.length > 0 && (
+                      <div className="space-y-1">
+                        <span className="text-[10px] uppercase font-bold text-rose-400">
+                          Fallacy Warning:
+                        </span>
+                        <div className="text-[11px] text-rose-300 bg-slate-900 p-2 rounded border border-rose-500/20">
+                          {preflightResult.logical_weaknesses[0].fallacy_name}: {preflightResult.logical_weaknesses[0].critique}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="flex items-center justify-between pt-1">
               <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-mono">

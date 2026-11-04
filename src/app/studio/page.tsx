@@ -194,6 +194,18 @@ export default function StudioPage() {
         {/* Header Links & Account */}
         <div className="flex items-center gap-3">
           <Link
+            href="/bounty"
+            className="hidden sm:flex items-center gap-1.5 text-xs text-amber-300 hover:text-amber-200 transition-colors font-semibold"
+          >
+            Sunday Bounty
+          </Link>
+          <Link
+            href="/pricing"
+            className="flex items-center gap-1.5 text-xs text-slate-300 hover:text-white transition-colors font-semibold"
+          >
+            Pricing
+          </Link>
+          <Link
             href="/"
             className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 hover:text-amber-400 transition-colors font-semibold"
           >

@@ -28,6 +28,7 @@ import {
 import { StressTestResult } from "@/lib/referee-types";
 import { useAntiCheat } from "@/lib/use-anti-cheat";
 import { RefereeTurnEvaluation, FinalAutopsy } from "@/lib/referee-types";
+import { getPersona } from "@/lib/personas";
 
 interface TurnRecord {
   id: string;
@@ -431,8 +432,81 @@ export default function ClashArenaPage() {
     }
   }
 
+  // Format participant names/titles nicely without raw IDs like 'aquinas FREE'
+  const formatParticipant = (name: string | null, tier?: string, personaId?: string | null) => {
+    if (!name) return { name: "Waiting for Challenger", title: "Open Seat" };
+
+    const persona = getPersona(personaId || name);
+    if (persona) {
+      if (persona.id === "aquinas") return { name: "St. Thomas Aquinas", title: "AI Grandmaster" };
+      if (persona.id === "ghazali") return { name: "Abu Hamid al-Ghazali", title: "Kalam Master" };
+      if (persona.id === "nietzsche_materialist") return { name: "Friedrich Nietzsche", title: "Materialist" };
+      if (persona.id === "ubuntu_sage") return { name: "Ogotemmêli", title: "Ubuntu Sage" };
+      if (persona.id === "stoic_logician") return { name: "Chrysippus of Soli", title: "Stoic Logician" };
+      if (persona.id === "sunday_grandmaster") return { name: "Grandmaster Arbiter", title: "Tournament Master" };
+      return { name: persona.name, title: persona.title };
+    }
+
+    // Human debater
+    return {
+      name,
+      title: tier ? `${tier} Debater` : "Debater",
+    };
+  };
+
+  const proInfo = formatParticipant(debate.pro_name, debate.pro_tier);
+  const conInfo = formatParticipant(debate.con_name, debate.con_tier, debate.ai_persona);
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans flex flex-col pb-24">
+      {/* ============================================================
+          0. SLEEK LOGOSARENA TOP NAVBAR
+          ============================================================ */}
+      <nav className="w-full bg-slate-950/90 border-b border-slate-800/80 backdrop-blur-md px-4 py-3 z-50">
+        <div className="max-w-5xl mx-auto flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2.5 group">
+            <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 group-hover:border-amber-400 transition-colors">
+              <Swords className="w-4 h-4" />
+            </div>
+            <div>
+              <span className="font-extrabold text-base tracking-tight text-slate-100">
+                LOGOS<span className="text-amber-400">ARENA</span>
+              </span>
+              <span className="hidden sm:inline-block ml-2 text-[10px] text-slate-400 uppercase tracking-widest font-semibold border-l border-slate-800 pl-2">
+                Colosseum Clash
+              </span>
+            </div>
+          </Link>
+
+          <div className="flex items-center gap-2 sm:gap-4 text-xs font-medium">
+            <Link
+              href="/"
+              className="text-slate-400 hover:text-amber-400 flex items-center gap-1 transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Arena</span> Lobby
+            </Link>
+            <Link
+              href="/bounty"
+              className="text-slate-400 hover:text-amber-400 hidden sm:flex items-center gap-1 transition-colors"
+            >
+              <Trophy className="w-3.5 h-3.5 text-amber-400" /> Sunday Bounty
+            </Link>
+            <Link
+              href="/studio"
+              className="text-slate-400 hover:text-amber-400 flex items-center gap-1 transition-colors"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Studio
+            </Link>
+            <Link
+              href="/pricing"
+              className="text-slate-400 hover:text-white hidden md:inline transition-colors"
+            >
+              Pricing
+            </Link>
+          </div>
+        </div>
+      </nav>
+
       {/* ============================================================
           1. STICKY TOP SCOREBOARD
           ============================================================ */}
@@ -440,27 +514,12 @@ export default function ClashArenaPage() {
         <div className="max-w-4xl mx-auto space-y-2.5">
           {/* Top meta bar */}
           <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-3">
-              <Link
-                href="/"
-                className="text-slate-400 hover:text-amber-400 flex items-center gap-1 transition-colors font-medium"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" /> Colosseum
-              </Link>
-              <Link
-                href="/studio"
-                className="hidden sm:flex text-slate-400 hover:text-amber-400 items-center gap-1 transition-colors font-medium"
-              >
-                <Sparkles className="w-3 h-3 text-amber-400" /> Studio
-              </Link>
-            </div>
-
             <div className="flex items-center gap-2">
-              <span className="font-mono text-[10px] text-slate-400 uppercase tracking-wider">
+              <span className="font-mono text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
                 ROUND {debate.current_round}/3
               </span>
               <span className="bg-amber-400/10 text-amber-400 border border-amber-400/30 px-2 py-0.5 rounded text-[10px] font-bold uppercase">
-                {debate.mode}
+                {debate.mode === "SUNDAY_BOUNTY" ? "Sunday Bounty Qualifier" : debate.mode}
               </span>
             </div>
 
@@ -470,7 +529,7 @@ export default function ClashArenaPage() {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-              <span className="text-slate-400 hidden sm:inline">Human Integrity:</span>
+              <span className="text-slate-400 hidden sm:inline">Referee Integrity:</span>
               <span className="font-bold text-emerald-400">{debate.pro_integrity || 100}%</span>
             </div>
           </div>
@@ -488,9 +547,9 @@ export default function ClashArenaPage() {
             <div className="space-y-1">
               <div className="flex items-center justify-between text-xs">
                 <div className="flex items-center gap-1.5 truncate">
-                  <span className="font-bold text-emerald-400 truncate">{debate.pro_name}</span>
+                  <span className="font-bold text-emerald-400 truncate">{proInfo.name}</span>
                   <span className="text-[10px] bg-slate-900 border border-slate-800 text-slate-400 px-1 rounded uppercase">
-                    {debate.pro_tier}
+                    {proInfo.title}
                   </span>
                 </div>
                 <div className="flex items-center gap-1 font-mono text-xs">
@@ -508,7 +567,7 @@ export default function ClashArenaPage() {
               <div className="flex justify-between text-[10px] text-slate-500">
                 <span>Clash: +{debate.pro_clash_points} pts</span>
                 {debate.current_turn === "PRO" && debate.status === "IN_PROGRESS" && (
-                  <span className="text-amber-400 font-bold animate-pulse">Debating...</span>
+                  <span className="text-emerald-400 font-bold animate-pulse">Defending Thesis...</span>
                 )}
               </div>
             </div>
@@ -518,10 +577,10 @@ export default function ClashArenaPage() {
               <div className="flex items-center justify-between text-xs">
                 <div className="flex items-center gap-1.5 truncate">
                   <span className="font-bold text-amber-400 truncate">
-                    {debate.con_name || "Waiting for Challenger"}
+                    {conInfo.name}
                   </span>
                   <span className="text-[10px] bg-slate-900 border border-slate-800 text-slate-400 px-1 rounded uppercase">
-                    {debate.con_tier}
+                    {conInfo.title}
                   </span>
                 </div>
                 <div className="flex items-center gap-1 font-mono text-xs">
@@ -539,7 +598,7 @@ export default function ClashArenaPage() {
               <div className="flex justify-between text-[10px] text-slate-500">
                 <span>Clash: +{debate.con_clash_points} pts</span>
                 {debate.current_turn === "CON" && debate.status === "IN_PROGRESS" && (
-                  <span className="text-amber-400 font-bold animate-pulse">Debating...</span>
+                  <span className="text-amber-400 font-bold animate-pulse">Countering...</span>
                 )}
               </div>
             </div>
@@ -631,33 +690,39 @@ export default function ClashArenaPage() {
               const isExpanded = Boolean(expandedVar[turn.id]);
               const fallacies = refereeData?.fallacies || [];
               const citations = refereeData?.citations || [];
+              const authorParticipant = formatParticipant(turn.author_name, undefined, isPro ? undefined : debate.ai_persona);
 
               return (
                 <article
                   key={turn.id}
                   className={`rounded-2xl border transition-all ${
                     isPro
-                      ? "bg-slate-900/80 border-emerald-500/30"
-                      : "bg-slate-900/80 border-amber-500/30"
+                      ? "bg-gradient-to-br from-emerald-950/20 via-slate-900/90 to-slate-900/80 border-emerald-500/40 shadow-emerald-950/20 shadow-md"
+                      : "bg-gradient-to-br from-amber-950/20 via-slate-900/90 to-slate-900/80 border-amber-500/40 shadow-amber-950/20 shadow-md"
                   } p-4 sm:p-5 shadow-lg relative`}
                 >
                   {/* Turn Header */}
                   <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-3 text-xs">
                     <div className="flex items-center gap-2">
                       <span
-                        className={`font-black text-[11px] px-2 py-0.5 rounded uppercase tracking-wider ${
+                        className={`font-black text-[11px] px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
                           isPro
-                            ? "bg-emerald-400/10 text-emerald-400 border border-emerald-400/30"
-                            : "bg-amber-400/10 text-amber-400 border border-amber-400/30"
+                            ? "bg-emerald-400/15 text-emerald-400 border border-emerald-400/40"
+                            : "bg-amber-400/15 text-amber-400 border border-amber-400/40"
                         }`}
                       >
                         {turn.side} • ROUND {turn.round_number}
                       </span>
-                      <span className="font-bold text-slate-200">{turn.author_name}</span>
+                      <span className="font-bold text-slate-200">{authorParticipant.name}</span>
+                      <span className="text-[10px] text-slate-400 hidden sm:inline">• {authorParticipant.title}</span>
                     </div>
 
                     <div className="flex items-center gap-2 text-slate-400 font-mono text-[11px]">
-                      <span>-{turn.hp_deducted} HP</span>
+                      {turn.hp_deducted > 0 ? (
+                        <span className="text-rose-400">-{turn.hp_deducted} HP</span>
+                      ) : (
+                        <span className="text-emerald-400/80">0 HP lost</span>
+                      )}
                       <span className="text-emerald-400">+{turn.clash_awarded} clash</span>
                     </div>
                   </div>
@@ -726,13 +791,13 @@ export default function ClashArenaPage() {
                       </span>
                     )}
 
-                    {/* Blitz Outcome Pill */}
-                    {turn.blitz_passed === 1 && (
-                      <span className="text-[10px] bg-amber-400/10 border border-amber-400/30 text-amber-300 px-2 py-0.5 rounded font-bold ml-auto">
+                    {/* Blitz Outcome Pill: Only show if Blitz check was actually triggered for that specific turn */}
+                    {turn.blitz_required === 1 && turn.blitz_passed === 1 && (
+                      <span className="text-[10px] bg-emerald-400/10 border border-emerald-400/30 text-emerald-300 px-2 py-0.5 rounded font-bold ml-auto">
                         Blitz Passed (25s)
                       </span>
                     )}
-                    {turn.blitz_passed === 0 && (
+                    {turn.blitz_required === 1 && turn.blitz_passed === 0 && (
                       <span className="text-[10px] bg-rose-500/10 border border-rose-500/30 text-rose-400 px-2 py-0.5 rounded font-bold ml-auto">
                         Blitz Failed (-25 HP)
                       </span>

@@ -100,6 +100,22 @@ describe("AI Referee, Personas, and Blitz Engine Unit Tests", () => {
       expect(result.hpDeducted).toBeGreaterThanOrEqual(15);
     });
 
+    it("identifies nonsense / conversational chatter as Red Herring (RH) with 20 HP deduction and 0 clash points", async () => {
+      const result = await judgeTurn({
+        motionTopic: "Is God required for objective morality?",
+        currentSide: "PRO",
+        authorName: "Nonsense Debater",
+        argumentText: "Good morning sir I will be there at the venue",
+      });
+
+      const rh = result.fallacies.find((f) => f.code === "RH");
+      expect(rh).toBeDefined();
+      expect(rh?.hpPenalty).toBe(20);
+      expect(result.hpDeducted).toBe(20);
+      expect(result.clashAwarded).toBe(0);
+      expect(result.clashScore).toBe(0);
+    });
+
     it("identifies False Dilemma (FD) and Slippery Slope (SS)", async () => {
       const result = await judgeTurn({
         motionTopic: "Secularism in Governance",
@@ -211,6 +227,16 @@ describe("AI Referee, Personas, and Blitz Engine Unit Tests", () => {
       const res = await checkSteelman(original, mocking);
       expect(res.valid).toBe(false);
       expect(res.feedback).toContain("attacks or mocks the opponent");
+    });
+
+    it("rejects nonsense/greeting chatter steelman attempts with score 0", async () => {
+      const original = "The teleological argument suggests that physical constants show design.";
+      const nonsense = "Good morning sir I will be there at the venue to meet you";
+
+      const res = await checkSteelman(original, nonsense);
+      expect(res.valid).toBe(false);
+      expect(res.score).toBe(0);
+      expect(res.feedback).toContain("nonsense");
     });
   });
 

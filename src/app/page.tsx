@@ -19,7 +19,7 @@ import {
   Zap,
   Sparkles,
 } from "lucide-react";
-import { PERSONAS } from "@/lib/personas";
+import { PERSONAS, getPersona } from "@/lib/personas";
 
 interface DebateSummary {
   id: string;
@@ -96,6 +96,21 @@ export default function HomeLobby() {
 
   // Dynamic Sunday Scholar Bounty Pool ($20 to $100)
   const [bountyPool, setBountyPool] = useState<number>(75);
+
+  const formatParticipant = (name: string | null, personaId?: string | null) => {
+    if (!name) return "Awaiting Opponent";
+    const persona = getPersona(personaId || name);
+    if (persona) {
+      if (persona.id === "aquinas") return "St. Thomas Aquinas • AI Grandmaster";
+      if (persona.id === "ghazali") return "Abu Hamid al-Ghazali • Kalam Master";
+      if (persona.id === "nietzsche_materialist") return "Friedrich Nietzsche • Materialist";
+      if (persona.id === "ubuntu_sage") return "Ogotemmêli • Ubuntu Sage";
+      if (persona.id === "stoic_logician") return "Chrysippus of Soli • Stoic Logician";
+      if (persona.id === "sunday_grandmaster") return "Grandmaster Arbiter • Tournament Master";
+      return `${persona.name} • ${persona.title}`;
+    }
+    return name;
+  };
 
   const fetchUser = async () => {
     try {
@@ -639,8 +654,8 @@ export default function HomeLobby() {
                       {/* Con Side */}
                       <div className="space-y-1">
                         <div className="flex items-center justify-between text-xs">
-                          <span className="text-slate-300 font-semibold truncate max-w-[150px]">
-                            CON: {debate.con_name || "Awaiting Opponent"}
+                          <span className="text-slate-300 font-semibold truncate max-w-[200px]">
+                            CON: {formatParticipant(debate.con_name, debate.ai_persona)}
                           </span>
                           <span className="font-mono text-xs text-slate-400">{debate.con_hp} HP</span>
                         </div>
